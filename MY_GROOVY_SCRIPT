@@ -1,0 +1,153 @@
+pipeline
+{
+    agent any
+        environment
+        {
+            GIT_REPO='https://github.com/akash8699/Jenkinsandjava.git'
+            AWS_REGION='ap-south-1'
+            ECR_REPO_NAME='akashjenkinsecr'
+            ECR_PUBLIC_REPO_URI='public.ecr.aws/f5f0t3v7/akashjenkinsecr'
+            IMAGE_TA='latest'
+            AWS_ACCOUNT_ID='668789610285'
+            IMAGE_URI="${ECR_PUBLIC_REPO_URI}:${IAMGE_TAG}"
+            EKS_CLUSTER='Akash-Cluster'
+        }
+    stages
+    {
+        stage('Install AWS CLI')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    set -e
+                    echo "Installing AWS CLI..."
+                    sudo apt install unzip
+                    sudo apt update && sudo apt install -y unzip curl
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                    rm -rf aws
+                    unzip -q awscliv2.zip
+                    sudo ./aws/install --update
+                    aws --version
+                    '''
+                }
+            }
+        }
+    
+        stage ('Configure AWS Credientials')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Setting up AWS Credentials for jenkins...."
+                    mkdir -p /var/lib/jenkins/.aws
+                    touch /var/lib/jenkins/.aws/credentials
+                    echo "[default]" > /var/lib/jenkins/.aws/credentials
+                    echo "aws_access_key_id=AKIAZXNXXS4WQC7P6MUD" >> /var/lib/jenkins/.aws/credentials
+                    echo "aws_secret_access_key=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">> /var/lib/jenkins/.aws/credentials
+                    chown -R jenkins:jenkins /var/lib/jenkins/.aws
+                    '''
+                }
+            }
+        }
+    
+        stage ('Clone Repository')
+        {
+            steps
+            {
+                 
+        git url: "${GIT_REPO}", branch: 'main'
+    
+            }
+        }
+        
+        stage ('Fix Workspace Permisions')
+        {
+            steps
+            {
+                script
+                {
+                   
+                 sh '''
+                 echo "fixing permissions on all parent dir"
+                 sudo chown -R jenkins:jenkins /var/lib/jenkins
+                 sudo chmod -R u+rwx /var/lib/jenkins
+                '''
+                }
+            }
+            
+        }
+        
+        stage('Build')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Building Java Application"
+                    sudo mvn clean -B -Denforcer.skip=true package
+                    '''
+                }
+            }
+        }
+        
+        stage ('Login to AWS ECR')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Logging into AWS ECR..."
+                    aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+                    '''
+                }
+            }
+        }
+        
+        stage ('Build Docker Image')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Building Docker Image"
+                    docker build -t "$IMAGE_URI" .
+
+                    '''
+                }
+            }
+        }
+        
+        stage ('Push Docker Image to ECR')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Pushing Docker Image to ECR" 
+                    docker push ${IMAGE_URI}
+                    '''
+                }
+            }
+        }
+        
+        stage ("Deploy to EKS")
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Updating kubecongif
+                }
+            }
+        }
+    }
+}

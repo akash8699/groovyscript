@@ -1,0 +1,96 @@
+pipeline
+{
+    agent any
+        environment
+        {
+            GIT_REPO='https://github.com/akash8699/Jenkinsandjava.git'
+            AWS_REGION='ap-south-1'
+            ECR_REPO_NAME='akashjenkinsecr'
+            ECR_PUBLIC_REPO_URI='public.ecr.aws/f5f0t3v7/akashjenkinsecr'
+            IMAGE_TA='latest'
+            AWS_ACCOUNT_ID='668789610285'
+            IMAGE_URI="${ECR_PUBLIC_REPO_URI}:${IAMGE_TAG}"
+            EKS_CLUSTER='Akash-Cluster'
+        }
+    stages
+    {
+        stage('Install AWS CLI')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    set -e
+                    echo "Installing AWS CLI..."
+                    sudo apt install unzip
+                    sudo apt update && sudo apt install -y unzip curl
+                    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                    rm -rf aws
+                    unzip -q awscliv2.zip
+                    sudo ./aws/install --update
+                    aws --version
+                    '''
+                }
+            }
+        }
+    
+        stage ('Configure AWS Credientials')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Setting up AWS Credentials for jenkins...."
+                    mkdir -p /var/lib/jenkins/.aws
+                    touch /var/lib/jenkins/.aws/credentials
+                    echo "[default]" > /var/lib/jenkins/.aws/credentials
+                    echo "aws_access_key_id=AKIAWN26KB25BRBD26NF" >> /var/lib/jenkins/.aws/credentials
+                    echo "aws_secret_access_key=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">> /var/lib/jenkins/.aws/credentials
+                    chown -R jenkins:jenkins /var/lib/jenkins/.aws
+                    '''
+                }
+            }
+        }
+    
+        stage ('Clone Repository')
+        {
+            steps
+            {
+                 
+        git url: "${GIT_REPO}", branch: 'main'
+    
+            }
+        }
+        
+        stage ('Fix Workspace Permisions')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Fixing workspace Permission..."
+                    sudo chown -R jenkins:jenkins $WORKSPACE
+                    '''
+                }
+            }
+            
+        }
+        
+        stage('Build')
+        {
+            steps
+            {
+                script
+                {
+                    sh '''
+                    echo "Building Java Application"
+                    mvn clean -B -Denforcer.skip=true package
+                    '''
+                }
+            }
+        }
+    }
+}
